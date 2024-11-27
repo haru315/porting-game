@@ -25,8 +25,8 @@ VBA で記述された簡単な脳トレゲームを Python に移植し\
 
 ### ◆ 画面設計
 
-![alt text](.md/image1.png)
-![alt text](.md/image2.png)
+![alt text](md/image1.png)
+![alt text](md/image2.png)
 
 ### ◆ 機能
 
