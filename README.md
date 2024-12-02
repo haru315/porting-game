@@ -24,10 +24,10 @@ VBA で記述された簡単な脳トレゲームを Python に移植し\
 - Pyinstaller 6.11.1
 
 ### ◆ 画面設計
-||画面設計|スクリーンショット|
-|---|---|---|
-|セレクト画面|![image1.png](md/image1.png)|![screen_shot1.png](md/screen_shot1.png)|
-|ゲーム画面|![image2.png](md/image2.png)|![screen_shot2.png](md/screen_shot2.png)|
+|画面設計|スクリーンショット|
+|---|---|
+|![image1.png](md/image1.png)|![screen_shot1.png](md/screen_shot1.png)|
+|![image2.png](md/image2.png)|![screen_shot2.png](md/screen_shot2.png)|
 
 ### ◆ 機能
 
