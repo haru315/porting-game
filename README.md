@@ -23,6 +23,10 @@ VBA で記述された簡単な脳トレゲームを Python に移植し\
 - tkinter 8.6.14
 - Pyinstaller 6.11.1
 
+### ◆ 構成図
+
+![configuration.png](md/configuration.png)
+
 ### ◆ 画面設計
 |画面設計|スクリーンショット|
 |---|---|
