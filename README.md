@@ -19,9 +19,10 @@ VBA で記述された簡単な脳トレゲームを Python に移植し\
 
 ### ◆ 使用したライブラリ
 
-- Python 3.13.0
-- tkinter 8.6.14
+- Python 3.13.1
+- tkinter 8.6.15
 - Pyinstaller 6.11.1
+- sqlite3 3.45.3
 
 ### ◆ 構成図
 
