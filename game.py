@@ -6,6 +6,7 @@ import random
 import time
 import os
 import json
+import sqlite3
 
 # 状態を列挙型で定義
 class State(Enum):
@@ -21,6 +22,7 @@ game_mode_sign =("+", "-", "×", "÷", "NULL")
 
 # 記録用ファイル名
 config_josn_path = "config.json"
+score_path = "score.db"
 
 # 文章問題用（chatGPT製）
 problems = [
@@ -78,20 +80,37 @@ class App(tk.Tk):
 
     def score_list_updated(self):
         """ リストの更新 """
+
+        # レベル、点数、タイム順に、昇順、昇順、降順でソート
+
+        # ゲームモードID取得
         self.game_mode = self.combo_a.get()
         self.game_mode_id = game_mode.index(self.game_mode)
 
         # ハイスコアリストの表示処理
+        cur = self.score_db.cursor()
         if self.check_var_a.get():
-            results = self.game_endless_mode_results[self.game_mode_id]
+            # time以外は、降順(数値が大きい順)
+            # timeは昇順(数が小さい順)
+            cur.execute("""
+                SELECT points, game_level, time FROM score_em
+                WHERE game_mode_id = ?
+                ORDER BY points DESC, game_level DESC, time ASC
+            """,(self.game_mode_id,))
         else :
-            results = self.game_mode_results[self.game_mode_id]
-        results = sorted(results, reverse=True, key=lambda x: x[0])  #[0]に注目して降順ソート
+            cur.execute("""
+                SELECT points, time FROM score
+                WHERE game_mode_id = ?
+                ORDER BY points DESC, time ASC
+            """,(self.game_mode_id,))
+        results = cur.fetchall()
 
+        # 表示リストに反映
+        # sqlite3には位指定の切り捨てが無い為、roundを使って少数点第1以降を切り捨て
         if self.check_var_a.get():
-            formatted_temps = [f" {temp[0]}点、レベル{temp[1]}、{temp[2]}秒" for temp in results]
+            formatted_temps = [f" {temp[0]}点、レベル{temp[1]}、{round(temp[2],1)}秒" for temp in results]
         else :
-            formatted_temps = [f" {temp[0]}点、{temp[1]}秒" for temp in results]
+            formatted_temps = [f" {temp[0]}点、{round(temp[1],1)}秒" for temp in results]
         self.list_a_cnames.set(formatted_temps)
  
     def quit(self):
@@ -203,9 +222,10 @@ class App(tk.Tk):
             # 通常モード
             # 計測終わり
             self.timer_stop()
-            # 記録
-            self.game_mode_results[self.game_mode_id].append([self.points,round(self.stopTime,1)])
-            self.game_mode_results[self.game_mode_id] = sorted(self.game_mode_results[self.game_mode_id])
+            # 記録 DBに記録
+            self.score_db.cursor().execute('INSERT INTO score (game_mode_id,points,time) VALUES (?,?,?)',(self.game_mode_id, self.points, self.stopTime))
+            self.score_db.commit() # DB保存
+
             if self.points >= self.point_max :
                 next = messagebox.askyesno('結果発表', f"お疲れ様です。あなたの点数は、満点です。{round(self.stopTime,1)}秒\n\n続けますか?")
             else :
@@ -221,9 +241,10 @@ class App(tk.Tk):
             if not next:
                 # 計測終わり
                 self.timer_stop()
-                # 記録
-                self.game_endless_mode_results[self.game_mode_id].append([self.points,self.game_level,round(self.stopTime,1)])
-                self.game_endless_mode_results[self.game_mode_id] = sorted(self.game_endless_mode_results[self.game_mode_id])
+                # 記録 DBに記録
+                self.score_db.cursor().execute('INSERT INTO score_em (game_mode_id,game_level,points,time) VALUES (?,?,?,?)',(self.game_mode_id, self.game_level, self.points, self.stopTime))
+                self.score_db.commit() # DB保存
+
                 messagebox.showinfo('結果発表', f"お疲れ様です。あなたの点数は、{self.points}点、到達レベル{self.game_level}です。{round(self.stopTime,1)}秒")
 
         # また再度始めるか終えるか分岐
@@ -302,9 +323,9 @@ class App(tk.Tk):
         else :
             self.stopTime= 0.0
     
-    # 記録・設定用jsonファイルの書き出し読み込み
+    # 設定用jsonファイルの書き出し読み込み
     def import_json(self):
-        """ 記録・設定読み込み """
+        """ 設定読み込み """
         if os.path.exists(config_josn_path):
             file = open(config_josn_path, 'r')
             importData = json.load(file)
@@ -312,29 +333,45 @@ class App(tk.Tk):
             self.num_questions_max = importData["config"]["num_questions_max"]
             self.point_max = importData["config"]["point_max"]
             self.chance_point_max = importData["config"]["chance_point_max"]
-            
-            self.game_mode_results = importData["log"]["game_mode_results"]
-            self.game_endless_mode_results = importData["log"]["game_endless_mode_results"]
-
             return True
         else :
             return False
     def save_json(self):
-        """ 記録・設定書き出し """
+        """ 設定書き出し """
         saveData = {
             "config":{
                 "time_next":self.time_next,
                 "num_questions_max":self.num_questions_max,
                 "point_max":self.point_max,
                 "chance_point_max":self.chance_point_max,
-            },
-            "log":{
-                "game_mode_results":self.game_mode_results,
-                "game_endless_mode_results":self.game_endless_mode_results
             }
         }
         file = open(config_josn_path,'w')
         json.dump(saveData,file)
+
+    # データベースの用意
+    def import_DB(self):
+        self.score_db = sqlite3.connect(score_path)
+        cur = self.score_db.cursor()
+        # テーブル定義
+        # 通常モード用
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS score(
+                id INTEGER PRIMARY KEY,
+                game_mode_id,
+                points,
+                time
+            )""")
+        # エンドレスモード用
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS score_em(
+                id INTEGER PRIMARY KEY,
+                game_mode_id,
+                game_level,
+                points,
+                time
+            )""")
+
 
     # 初期化
     def __init__(self):
@@ -354,9 +391,10 @@ class App(tk.Tk):
             self.point_max = 100
             # エンドレスモードの際間違ってもいい数
             self.chance_point_max = 5
-            # 記録初期化
-            self.game_mode_results = [[], [], [], [], []]
-            self.game_endless_mode_results = [[], [], [], [], []]
+        
+        # データベースの用意
+        self.import_DB()
+
         # チャレンジ数初期化
         self.chance_point = 0
         # 加点数と減点数を設定
@@ -380,6 +418,8 @@ class App(tk.Tk):
         # 終了ボタン
         self.end_button_a = tk.Button(self.element_a, text="終了", font = ('MS Gothic', 12), command=self.quit)
         self.end_button_a.pack(side = tk.RIGHT)
+
+        
         
         # タイトル
         self.title_a = tk.Label(self.element_a, text="ゲームセレクト", font = ('MS Gothic', 20))
